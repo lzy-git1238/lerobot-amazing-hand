@@ -187,7 +187,7 @@ uv run --no-sync lerobot-preview-amazing-hand-camera --follow --hand-port="$HAND
 
 联合录制时，将前文 `robot_args` 中的 `--robot.hand_control_mode=servo` 改为 `--robot.hand_control_mode=servo_juxi`。在 `teleop_args` 中省略 `--teleop.hand_camera.model_path=hand_landmarker.task`，会自动使用内置网页。保持相机页面可见，完成三个姿态后录制开始。
 
-这个模式用舵机轴的绝对角度（度），包含屈伸和侧摆。录制桥接页启用四指屈伸和四指侧摆，共八个自由度。中指侧摆目标为 −20° 到 +20°，拇指为 0° 到 −30°。采集「伸直张开」和「伸直合拢」时让中指和拇指产生侧向位移，测量跨度不足 3° 时页面提示重采。侧摆仍随握拳程度衰减。数据字段维持八路舵机轴角度。为它新建数据集，回放或部署对应策略时使用 `--robot.hand_control_mode=servo_juxi`。
+这个模式用舵机轴的绝对角度（度），包含屈伸和侧摆。录制桥接页启用四指屈伸和四指侧摆，共八个自由度。中指侧摆目标为 −20° 到 +20°，拇指为 0° 到 −45°。采集「伸直张开」和「伸直合拢」时让中指和拇指产生侧向位移，测量跨度不足 3° 时页面提示重采。食指、中指、无名指的侧摆随握拳程度衰减，拇指的侧摆独立于屈伸输出。数据字段维持八路舵机轴角度。为它新建数据集，回放或部署对应策略时使用 `--robot.hand_control_mode=servo_juxi`。
 
 ## 容器化
 

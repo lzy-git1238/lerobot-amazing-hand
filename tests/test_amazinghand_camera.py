@@ -36,6 +36,54 @@ def test_default_browser_assets_are_bundled_and_complete():
     full_dof_tracking(source)
 
 
+def test_browser_thumb_splay_preserves_its_range_while_flexing():
+    import json
+    import shutil
+    import subprocess
+
+    from lerobot.teleoperators.so_amazing_hand_camera.juxi import full_dof_tracking
+    from lerobot.utils.amazinghand import DEFAULT_JUXI_SOURCE
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node is needed to execute the browser mapping regression")
+    source = (DEFAULT_JUXI_SOURCE / "Amazinghand-web-io/tracking.js").read_text()
+    algorithm = full_dof_tracking(source).split("async function listCameras()")[0]
+    harness = """
+const state={camera:{full_dof:true,flex_straight:-50,
+  flex_fist:{ring:90,middle:90,pointer:90,thumb:18},
+  side_together:{ring:-45,middle:-20,pointer:45,thumb:0},
+  side_spread:{ring:45,middle:20,pointer:-45,thumb:-45}}};
+const window={I18N:{t:()=>'',pick:(_g,k)=>k},
+  AH:{target:()=> 'right',driver:()=> 'scs0009'}};
+"""
+    probe = """
+handFrame=()=>({});
+let flex=0;
+flexionAt=()=>flex;
+splayDeg=()=>20;
+cal={flexLo:{ring:0,middle:0,pointer:0,thumb:0},
+     flexHi:{ring:1,middle:1,pointer:1,thumb:1},
+     splayLo:{ring:0,middle:0,pointer:0,thumb:0},
+     splayHi:{ring:20,middle:20,pointer:20,thumb:20}};
+const result=[];
+for(const curl of [0,0.5,1]) {
+  flex=curl;
+  let output;
+  for(let frame=0;frame<120;frame++) output=toAngles([],[], 'Right');
+  result.push({thumb:(output.thumb[0]-output.thumb[1])/2,
+               pointer:(output.pointer[0]-output.pointer[1])/2});
+}
+console.log(JSON.stringify(result));
+"""
+    result = subprocess.run(
+        [node], input=harness + algorithm + probe, text=True, capture_output=True, check=True
+    )
+    values = json.loads(result.stdout)
+    assert [value["thumb"] for value in values] == [-45, -45, -45]
+    assert values[-1]["pointer"] == 0
+
+
 @pytest.mark.parametrize("as_list", [False, True])
 def test_position_feedback_accepts_single_register_values(as_list):
     def read_position(servo_id):

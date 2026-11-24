@@ -62,7 +62,7 @@ window.AH_MEDIAPIPE_BASE = "/mediapipe";
       document.querySelector("nav.tabs").style.display = "none";
       const note = document.createElement("p");
       note.className = "muted cam-hint";
-      note.textContent = "LeRobot 八自由度采集 · 重采三个姿势。张开与合拢时，中指和拇指都要有侧向位移。中指侧摆 −20°～20°，拇指 0°～−30°。串口由 LeRobot 管理";
+      note.textContent = "LeRobot 八自由度采集 · 重采三个姿势。张开与合拢时，中指和拇指都要有侧向位移。中指侧摆 −20°～20°，拇指 0°～−45°。串口由 LeRobot 管理";
       document.getElementById("panel-camera").prepend(note);
       const heartbeat = setInterval(async () => {
         try {

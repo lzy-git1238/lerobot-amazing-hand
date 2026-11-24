@@ -19,9 +19,16 @@ from .tracker import HandTrackingLostError
 def full_dof_tracking(source: str) -> str:
     """Enable four calibrated splay axes in the locally served Juxi tracker."""
     guard = 'if (key !== "thumb") {'
-    if source.count(guard) != 1 or source.count("  const R = cal;") != 1:
+    decay = "    side *= (1 - curl);"
+    if source.count(guard) != 1 or source.count("  const R = cal;") != 1 or source.count(decay) != 1:
         raise ValueError("Unsupported Juxi tracking.js version for eight-axis recording.")
     source = source.replace(guard, 'if (key !== "thumb" || state.camera?.full_dof) {')
+    # Thumb opposition couples the flexion estimate to lateral motion. Applying
+    # the long-finger curl suppression here was cancelling the requested splay.
+    source = source.replace(
+        decay,
+        '    if (key !== "thumb" || !state.camera?.full_dof) side *= (1 - curl);',
+    )
     return source.replace(
         "  const R = cal;",
         """  const R = cal;
@@ -93,7 +100,7 @@ class JuxiHandBridge:
         camera = config["camera"]
         camera["full_dof"] = True
         camera["side_together"] = {**camera["side_together"], "middle": -20, "thumb": 0}
-        camera["side_spread"] = {**camera["side_spread"], "middle": 20, "thumb": -30}
+        camera["side_spread"] = {**camera["side_spread"], "middle": 20, "thumb": -45}
         tracking = full_dof_tracking((root / "tracking.js").read_text(encoding="utf-8")).encode()
         hand = config["hands"]["right"]
         ids = [servo_id for finger in hand["fingers"] for servo_id in finger["ids"]]
