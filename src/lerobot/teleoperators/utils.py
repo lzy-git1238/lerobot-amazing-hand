@@ -20,6 +20,7 @@ from lerobot.utils.import_utils import make_device_from_device_class
 from .config import TeleoperatorConfig
 
 if TYPE_CHECKING:
+    from .so_amazing_hand_camera import SOAmazingHandCameraConfig
     from .teleoperator import Teleoperator
 
 
@@ -55,6 +56,10 @@ def make_teleoperator_from_config(config: TeleoperatorConfig) -> "Teleoperator":
         from .so_leader import SO101Leader
 
         return SO101Leader(config)
+    elif config.type == "so101_amazing_hand_camera":
+        from .so_amazing_hand_camera.so_amazing_hand_camera import SOAmazingHandCamera
+
+        return SOAmazingHandCamera(cast("SOAmazingHandCameraConfig", config))
     elif config.type == "mock_teleop":
         from tests.mocks.mock_teleop import MockTeleop
 

@@ -15,6 +15,8 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from math import isfinite
+from typing import Literal
 
 from ..config import RobotConfig
 from ..so_follower.config_so_follower import SOFollowerRobotConfig
@@ -64,17 +66,26 @@ class SOAmazingHandFollowerConfig:
         default_factory=lambda: [90.0, -90.0, 90.0, -90.0, 90.0, -90.0, 90.0, -90.0]
     )
     # Close speed for each servo. Last two entries are the thumb (CloseSpeed+1 in the original demo).
-    hand_close_speeds: list[int] = field(
-        default_factory=lambda: [3, 3, 3, 3, 3, 3, 4, 4]
-    )
+    hand_close_speeds: list[int] = field(default_factory=lambda: [3, 3, 3, 3, 3, 3, 4, 4])
     # Max speed for opening the hand.
     hand_max_speed: int = 7
 
     # Baudrate of the hand serial bus.
     hand_baudrate: int = 1_000_000
 
+    hand_control_mode: Literal["gripper", "servo", "servo_juxi"] = "gripper"
+    hand_max_step_deg: float = 6.0
+
 
 @RobotConfig.register_subclass("so101_amazing_hand")
 @dataclass
 class SO101AmazingHandFollowerConfig(SOFollowerRobotConfig, SOAmazingHandFollowerConfig):
-    pass
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.hand_control_mode != "gripper":
+            if not self.use_degrees:
+                raise ValueError("AmazingHand servo mode requires arm angles in degrees.")
+            if not isfinite(self.hand_max_step_deg) or self.hand_max_step_deg <= 0:
+                raise ValueError("hand_max_step_deg must be finite and positive.")
+        if self.hand_control_mode == "servo_juxi" and self.hand_side != 1:
+            raise ValueError("Juxi servo control requires the right SCS0009 hand with IDs 1–8.")

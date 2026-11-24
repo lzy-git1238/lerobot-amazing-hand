@@ -119,6 +119,7 @@ from lerobot.teleoperators import (  # noqa: F401
     openarm_mini,
     reachy2_teleoperator,
     rebot_102_leader,
+    so_amazing_hand_camera,
     so_leader,
     unitree_g1,
 )
@@ -252,14 +253,15 @@ def teleoperate(cfg: TeleoperateConfig):
         else cfg.display_compressed_images
     )
 
+    if isinstance(cfg.teleop, so_amazing_hand_camera.SOAmazingHandCameraConfig):
+        cfg.teleop.check_robot_config(cfg.robot)
     teleop = make_teleoperator_from_config(cfg.teleop)
     robot = make_robot_from_config(cfg.robot)
     teleop_action_processor, robot_action_processor, robot_observation_processor = make_default_processors()
 
-    teleop.connect()
-    robot.connect()
-
     try:
+        teleop.connect()
+        robot.connect()
         teleop_loop(
             teleop=teleop,
             robot=robot,
@@ -277,8 +279,12 @@ def teleoperate(cfg: TeleoperateConfig):
     finally:
         if cfg.display_data:
             shutdown_visualization(cfg.display_mode)
-        teleop.disconnect()
-        robot.disconnect()
+        try:
+            if robot.is_connected:
+                robot.disconnect()
+        finally:
+            if teleop.is_connected:
+                teleop.disconnect()
 
 
 def main():

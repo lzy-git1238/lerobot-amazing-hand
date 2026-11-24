@@ -39,3 +39,6 @@
 *.gif        binary
 *.mp4        binary
 *.safetensors binary
+
+# Preserve imported frontend/runtime files byte-for-byte, including upstream whitespace.
+src/lerobot/teleoperators/so_amazing_hand_camera/web_assets/** -text -whitespace

@@ -1,0 +1,22 @@
+{
+  "Amazinghand-web/web/mediapipe/hand_landmarker.task": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+  "Amazinghand-web/web/mediapipe/vision_bundle.mjs": "d885630c297c0b20b1fe86096cb06291c4c8080876f27852e724f24ac603713f",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_internal.js": "e170ee67dd4e16c1a6fcd8840a206687e5a59b22c20e4a902bc445b095454d73",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_internal.wasm": "8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_module_internal.js": "da8934057f147b622e82cfb4c0dbd85461c598e268588b5a8ba9ca963a8ff82d",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_module_internal.wasm": "2dabd8e23c60984628beb7bb338764c81a08e6837145273f59578684b5d53c1b",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_nosimd_internal.js": "e81d715a3d42cc3373602eb2f7aff795d164934db680e32496b65dab537f9658",
+  "Amazinghand-web/web/mediapipe/wasm/vision_wasm_nosimd_internal.wasm": "a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192",
+  "Amazinghand-web-io/app.js": "f2945232c8f5953165197bfb30bc579baefd297a58452ba503250a53c2c398dd",
+  "Amazinghand-web-io/common.js": "30efd49b8d1807b9d2b71c5d09a32d04babbf7ab2c1fa627b0d382ad8a9db7de",
+  "Amazinghand-web-io/config.json": "8056b9d2f66f8bc6b2f7e30a3b6807d7aabf55b6329c95b555d7e719281ecc81",
+  "Amazinghand-web-io/i18n.js": "b3270a7233f812008990fe1cdfa4131454cca118bb1d6e02d9e5bce9853b90b7",
+  "Amazinghand-web-io/index.html": "3709c6efe5bcba68e74897ba79b89ea80448cd5ba4b4d850f63c48dd179d65dd",
+  "Amazinghand-web-io/io.js": "e33aa97c1d634ea39d1de7d43bf820ce6bc89f41f0646f3a4508a7932213cbf2",
+  "Amazinghand-web-io/pwm.js": "02fecdea20f5a992033963250ff1c6f1b6b99a1f7108ed3ec76632d9b37a5c19",
+  "Amazinghand-web-io/style.css": "8bdb1c473828ee0760169e7477d7d893a6afe166abe7afc1d2e114aa1cb2a39f",
+  "Amazinghand-web-io/tracking.js": "a8c5498ac19f7fbf1291a5503fc82a24006bd0519b1e6ac493372f6efb9e2f39",
+  "Amazinghand-web-io/ws.js": "8a4b1edb1a5a30c1fd89bbde24b1eba340537e44da4b06da9909175fca369797",
+  "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "UPSTREAM_NOTICE.md": "bb1ffb5c4980cbc8f6de1929bd329cfeaef5d56b3a986e06e07eb7e7ac27952c"
+}

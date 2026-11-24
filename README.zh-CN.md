@@ -86,6 +86,109 @@ lerobot-rollout --strategy.type=base \
   --task="Pick up the cube with the dexterous hand"
 ```
 
+## 前置摄像头遥操与联合训练
+
+主动臂控制 SO-101 的 5 个关节，电脑前置摄像头跟踪拇指、食指、中指和无名指的屈伸。每根手指的两个舵机沿标定的张开到握拳路径协同运动。LeRobot 每帧记录 13 路实测角度和 13 路实际下发的目标角度，单位为度。手部字段为 `hand_servo_1.pos` 至 `hand_servo_8.pos`，角度以手部舵机中心位置为零点。使用新的数据集目录录制这一模式。
+
+### 预览和标定
+
+```bash
+uv sync --extra amazinghand-camera --extra training
+curl -fL https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task \
+  -o hand_landmarker.task
+
+uv run --no-sync lerobot-preview-amazing-hand-camera \
+  --model-path=hand_landmarker.task --camera=0 --handedness=Right
+```
+
+只连接灵巧手时，下面的命令启动实机跟随并自动打开浏览器。将串口替换为灵巧手串口。已标定时使用保存的舵机端点，首次试机使用启动姿态附近 ±5°。跟踪丢失约半秒后卸力，点击页面上的“停止跟随并卸力”结束测试。去掉 `--follow` 并加 `--dashboard` 可进入标定模式。用网页上的参考张开、回中位、参考握拳和逐指滑块驱动舵机，等实测角度到位后采集灵巧手端点。摄像头遥操作录制时会自动打开同一界面并显示实际下发的目标。
+
+```bash
+uv run --no-sync lerobot-preview-amazing-hand-camera --follow --hand-port=/dev/ttyACM0 \
+  --camera=0 --model-path=hand_landmarker.task
+```
+
+预览可在机器人断开时运行，逐帧打印四根手指的屈伸比例。存在 `hand_angles.json` 时也会打印 8 路目标角度。用 `Left` 选择左手。
+
+```bash
+export LEADER_PORT=/dev/ttyACM0
+export FOLLOWER_PORT=/dev/ttyACM1
+export HAND_PORT=/dev/ttyUSB0
+export DATASET_ID=local/amazinghand_camera
+export DATASET_ROOT=outputs/datasets/amazinghand_camera
+
+uv run --no-sync lerobot-calibrate-amazing-hand --hand_port="$HAND_PORT"
+```
+
+替换为实际串口和已标定的主动臂、从动臂 ID。在图形界面保存张开和握拳姿态。使用自定义手部标定目录时，给机器人传 `--robot.calibration_dir`，给遥操器传 `--teleop.hand_camera.calibration_path`，两者应指向同一份 `hand_angles.json`。
+
+### 遥操、录制和训练
+
+以下命令使用摄像头 0 跟踪人手，摄像头 1 拍摄工件和机械臂。录制前把所选的人手放进画面。短暂丢失时保持上次手部目标，持续丢失超过配置的保留时间会停止本次运行并保留已保存的回合。
+
+```bash
+robot_args=(
+  --robot.type=so101_amazing_hand --robot.hand_control_mode=servo
+  --robot.port="$FOLLOWER_PORT" --robot.hand_port="$HAND_PORT"
+  --robot.id=amazing_hand_follower
+)
+teleop_args=(
+  --teleop.type=so101_amazing_hand_camera --teleop.port="$LEADER_PORT"
+  --teleop.id=amazing_hand_leader --teleop.hand_camera.model_path=hand_landmarker.task
+  --teleop.hand_camera.camera.index_or_path=0 --teleop.hand_camera.handedness=Right
+)
+task_camera='--robot.cameras={task: {type: opencv, index_or_path: 1, width: 640, height: 480, fps: 30}}'
+
+uv run --no-sync lerobot-teleoperate "${robot_args[@]}" "${teleop_args[@]}" --fps=30
+uv run --no-sync lerobot-record "${robot_args[@]}" "${teleop_args[@]}" "$task_camera" \
+  --dataset.repo_id="$DATASET_ID" --dataset.root="$DATASET_ROOT" \
+  --dataset.single_task="Pick up the cube" --dataset.fps=30 --dataset.num_episodes=20 \
+  --dataset.push_to_hub=false
+
+uv run --no-sync lerobot-train --dataset.repo_id="$DATASET_ID" --dataset.root="$DATASET_ROOT" \
+  --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
+  --output_dir=outputs/train/amazinghand_camera_act
+
+uv run --no-sync lerobot-rollout --strategy.type=base "${robot_args[@]}" "$task_camera" \
+  --policy.path=outputs/train/amazinghand_camera_act/checkpoints/last/pretrained_model \
+  --task="Pick up the cube"
+```
+
+只有前置摄像头时，去掉录制命令里的 `"$task_camera"` 可以先验证角度采集。有了任务画面后另建数据集，再用 ACT 联合训练。实机部署使用与训练时相同的任务相机配置。
+
+### 分享工程并启动单手录制
+
+分享整个工程文件夹时，请包含 `web_assets/` 下约 42 MB 的模型和 WASM 文件。接收者在工程根目录安装依赖后启动：
+
+```bash
+uv sync --locked --extra amazinghand-camera
+uv run python examples/amazinghand/record_hand.py --hand-port /dev/ttyACM0 --seconds 5 --fps 15
+```
+
+串口替换为接收者的实际设备串口。网页默认打开 `http://127.0.0.1:8765`。三姿势标定完成后自动录制，数据保存到 `outputs/datasets/amazinghand_hand_only_live_<时间>/`，包含八路状态和八路目标角度。
+
+回放时使用实际生成的数据目录：
+
+```bash
+uv run python examples/amazinghand/replay_hand.py outputs/datasets/<数据集目录> --hand-port /dev/ttyACM0
+```
+
+网页来源、许可证和导入文件的 SHA256 校验值放在 `web_assets/`。源码分发和 Python wheel 都包含本地网页资源。
+
+### 使用 Juxi 原版跟踪
+
+网页、配置、MediaPipe 模型和 WASM 运行时已收进本工程的 `src/lerobot/teleoperators/so_amazing_hand_camera/web_assets/`。启动默认使用这些内置资源。打开页面后启动摄像头，采集「伸直张开」「伸直合拢」「握拳」。浏览器识别姿态，LeRobot 管理串口。
+
+单独测试右手 SCS0009（舵机 ID 1–8）：
+
+```bash
+uv run --no-sync lerobot-preview-amazing-hand-camera --follow --hand-port="$HAND_PORT"
+```
+
+联合录制时，将前文 `robot_args` 中的 `--robot.hand_control_mode=servo` 改为 `--robot.hand_control_mode=servo_juxi`。在 `teleop_args` 中省略 `--teleop.hand_camera.model_path=hand_landmarker.task`，会自动使用内置网页。保持相机页面可见，完成三个姿态后录制开始。
+
+这个模式用舵机轴的绝对角度（度），包含屈伸和侧摆。录制桥接页启用四指屈伸和四指侧摆，共八个自由度。中指侧摆目标为 −20° 到 +20°，拇指为 0° 到 −30°。采集「伸直张开」和「伸直合拢」时让中指和拇指产生侧向位移，测量跨度不足 3° 时页面提示重采。侧摆仍随握拳程度衰减。数据字段维持八路舵机轴角度。为它新建数据集，回放或部署对应策略时使用 `--robot.hand_control_mode=servo_juxi`。
+
 ## 容器化
 
 ```bash

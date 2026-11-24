@@ -14,6 +14,9 @@
 
 ### Environments & Dependencies ###
 .env
+.env.*
+!.env.example
+!.env.*.example
 .venv
 env/
 venv/
@@ -191,3 +194,24 @@ PRODUCT_OVERVIEW.md
 
 # Claude Code 约定文件（内容与 AGENTS.md 相同，本地保留但不上传）
 CLAUDE.md
+
+# Local credentials and agent state
+.aws/
+.ssh/
+.codex/
+.agents/
+.superpowers/
+*.pem
+*.p12
+*.pfx
+
+# Local recording sessions, calibration and model checkpoints
+/calibration/
+/recordings/
+/checkpoints/
+/hand_landmarker.task
+
+# Browser profiles and local package/tool caches
+.uv-cache/
+chrome-profile/
+chromium-profile/

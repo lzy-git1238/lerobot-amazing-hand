@@ -148,10 +148,13 @@ from lerobot.teleoperators import (  # noqa: F401
     openarm_mini,
     reachy2_teleoperator,
     rebot_102_leader,
+    so_amazing_hand_camera,
     so_leader,
     unitree_g1,
 )
 from lerobot.teleoperators.keyboard import KeyboardTeleop
+from lerobot.teleoperators.so_amazing_hand_camera.dashboard import HandDashboard
+from lerobot.utils.amazinghand import HAND_SERVO_NAMES
 from lerobot.utils.constants import ACTION, OBS_STR
 from lerobot.utils.feature_utils import build_dataset_frame, combine_feature_dicts
 from lerobot.utils.import_utils import register_third_party_plugins
@@ -246,6 +249,7 @@ def record_loop(
     display_data: bool = False,
     display_mode: str = "rerun",
     display_compressed_images: bool = False,
+    hand_dashboard: HandDashboard | None = None,
 ):
     if dataset is not None and dataset.fps != fps:
         raise ValueError(f"The dataset fps should be equal to requested fps ({dataset.fps} != {fps}).")
@@ -276,6 +280,10 @@ def record_loop(
             )
 
     control_interval = 1 / fps
+    record_sent_action = (
+        isinstance(robot, so_amazing_hand.SO101AmazingHandFollower)
+        and robot.config.hand_control_mode != "gripper"
+    )
 
     no_action_count = 0
     timestamp = 0
@@ -330,10 +338,20 @@ def record_loop(
         # Action can eventually be clipped using `max_relative_target`,
         # so action actually sent is saved in the dataset. action = postprocessor.process(action)
         # TODO(steven, pepijn, adil): we should use a pipeline step to clip the action, so the sent action is the action that we input to the robot.
-        _sent_action = robot.send_action(robot_action_to_send)
+        sent_action = robot.send_action(robot_action_to_send)
+
+        if hand_dashboard is not None:
+            phase = f"录制中 · 第 {dataset.num_episodes + 1} 回合" if dataset is not None else "场景复位"
+            hand_dashboard.telemetry(
+                [float(obs[key]) for key in HAND_SERVO_NAMES],
+                [float(sent_action[key]) for key in HAND_SERVO_NAMES],
+                phase,
+            )
 
         # Write to dataset
         if dataset is not None:
+            if record_sent_action:
+                action_values = sent_action
             action_frame = build_dataset_frame(dataset.features, action_values, prefix=ACTION)
             frame = {**observation_frame, **action_frame, "task": single_task}
             dataset.add_frame(frame)
@@ -378,8 +396,19 @@ def record(
         else cfg.display_compressed_images
     )
 
+    if isinstance(cfg.teleop, so_amazing_hand_camera.SOAmazingHandCameraConfig):
+        cfg.teleop.check_robot_config(cfg.robot)
     robot = make_robot_from_config(cfg.robot)
     teleop = make_teleoperator_from_config(cfg.teleop) if cfg.teleop is not None else None
+
+    hand_dashboard = None
+    if (
+        isinstance(cfg.teleop, so_amazing_hand_camera.SOAmazingHandCameraConfig)
+        and cfg.teleop.hand_camera.dashboard
+        and cfg.teleop.hand_camera.juxi_source is None
+    ):
+        hand_dashboard = HandDashboard(cfg.teleop.hand_camera, "录制准备")
+        teleop.tracker.dashboard = hand_dashboard
 
     # Fall back to identity pipelines when the caller doesn't supply processors.
     if (
@@ -441,7 +470,7 @@ def record(
                 cfg.dataset.repo_id,
                 cfg.dataset.fps,
                 root=cfg.dataset.root,
-                robot_type=robot.name,
+                robot_type=robot.robot_type,
                 features=dataset_features,
                 use_videos=cfg.dataset.video,
                 image_writer_processes=cfg.dataset.num_image_writer_processes,
@@ -474,6 +503,7 @@ def record(
                 record_loop(
                     robot=robot,
                     events=events,
+                    hand_dashboard=hand_dashboard,
                     fps=cfg.dataset.fps,
                     teleop_action_processor=teleop_action_processor,
                     robot_action_processor=robot_action_processor,
@@ -497,6 +527,7 @@ def record(
                     record_loop(
                         robot=robot,
                         events=events,
+                        hand_dashboard=hand_dashboard,
                         fps=cfg.dataset.fps,
                         teleop_action_processor=teleop_action_processor,
                         robot_action_processor=robot_action_processor,

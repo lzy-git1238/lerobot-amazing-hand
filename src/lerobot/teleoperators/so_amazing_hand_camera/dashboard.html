@@ -1,0 +1,81 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AmazingHand · 手部映射</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f0;color:#182a29;font:15px/1.55 system-ui,"Noto Sans CJK SC",sans-serif}header{background:#142b29;color:white;padding:16px max(4vw,18px);display:flex;align-items:center;gap:14px}.mark{width:15px;height:15px;border-radius:4px;background:#a6efc3}header strong{letter-spacing:.03em;font-size:20px}header span:last-child{margin-left:auto;color:#b5d8ca}main{max-width:1340px;margin:auto;padding:24px 4vw}h1{margin:0 0 16px;font-size:clamp(26px,3vw,38px);letter-spacing:-.04em}h2{margin:0;font-size:18px}.grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr);gap:16px}.card{background:white;border:1px solid #d2ded9;border-radius:14px;padding:18px;min-width:0}.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px}.muted,small{color:#506863}.stage{aspect-ratio:4/3;background:#14201f;display:grid;place-items:center;border-radius:8px;overflow:hidden}canvas{display:block;width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}.bar{height:6px;background:#dfebe5;border-radius:4px;overflow:hidden;margin:5px 0 12px}.bar i{display:block;height:100%;background:#28886c}.row{display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}td,th{text-align:right;padding:4px 0;border-bottom:1px solid #e5ece8}td:first-child,th:first-child{text-align:left}th{color:#506863;font-weight:500}.cal{margin-top:16px}.tools{display:flex;flex-wrap:wrap;gap:8px}button{font:inherit;padding:7px 14px;border-radius:6px;color:#174939;background:#e1f2e7;border:1px solid #b2d4c2;cursor:pointer}button:disabled{opacity:.45;cursor:default}button:focus-visible{outline:3px solid #32a981}output{display:block;margin-top:10px}.group{margin:14px 0}.group p{margin:3px 0 8px}#status{font-weight:600;color:#207451}@media(max-width:770px){.grid{grid-template-columns:1fr}main{padding:18px 12px}}
+
+.fingers{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px;margin:12px 0}.finger{border:1px solid #d2ded9;border-radius:8px;padding:10px}.finger label{display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 8px;margin-top:6px}.finger input{grid-column:1/-1;width:100%;accent-color:#28886c}.finger output{margin:0;color:#174939;font-variant-numeric:tabular-nums}
+</style><header><b class="mark"></b><strong>AmazingHand</strong><span id="phase">正在连接</span><button id="halt" hidden>停止跟随并卸力</button></header><main><h1>手部映射</h1><div class="grid"><section class="card"><div class="head"><h2>前置摄像头</h2><span id="status" role="status">等待画面</span></div><div class="stage"><canvas id="view" width="640" height="480"></canvas></div></section><section class="card"><div class="head"><h2>手指屈伸</h2><small>张开 → 握拳</small></div><div id="bars"></div><div class="head"><h2>舵机角度</h2><small>相对中心 · °</small></div><table><thead><tr><th>手指 / ID</th><th>目标</th><th>实测</th></tr></thead><tbody id="angles"></tbody></table></section></div>
+<section class="card cal" id="cal" hidden><div class="head"><h2>端点标定</h2><button id="stop">关闭预览并释放设备</button></div><div class="group"><b>人手</b><p class="muted">面向镜头保持姿态，依次采集张手和握拳。</p><div class="tools"><button data-cmd="vision-open">采集人手张开</button><button data-cmd="vision-close">采集人手握拳</button></div></div><div class="group" id="servo"><b>灵巧手</b><p class="muted">选择参考姿态或用滑块驱动四指。等舵机到位后，采集编码器实测角度。</p><div class="tools"><button data-pose="open">参考张开</button><button data-pose="middle">回中位</button><button data-pose="close">参考握拳</button></div><div class="fingers" id="fingers"></div><div class="tools"><button data-cmd="servo-open">采集灵巧手张开</button><button data-cmd="servo-close">采集灵巧手握拳</button></div></div><output id="message" aria-live="polite"></output></section></main>
+<script>
+const el=id=>document.getElementById(id),names=['食指','中指','无名指','拇指'],ctx=el('view').getContext('2d');
+const chains=[[0,1,2,3,4],[0,5,6,7,8],[5,9,10,11,12],[9,13,14,15,16],[13,17,18,19,20],[17,0]],colors=['#ffd783','#68f1c8','#6bdcff','#ffb6d8','#beb2ff','#a6efc3'];
+el('bars').innerHTML=names.map(n=>'<div class="row"><span>'+n+'</span><b>—</b></div><div class="bar"><i></i></div>').join('');
+el('angles').innerHTML=Array.from({length:8},(_,i)=>'<tr><td>'+names[Math.floor(i/2)]+' / '+(i+1)+'</td><td>—</td><td>—</td></tr>').join('');
+const fingerSliders = [];
+function updateFingerControls(state) {
+  const ready = state.finger_axes !== null;
+  document.querySelectorAll('[data-pose]').forEach(button => { button.disabled = !ready; });
+  if (!ready) return;
+  if (!fingerSliders.length) {
+    names.forEach((name, finger) => {
+      const card = document.createElement('div');
+      card.className = 'finger';
+      card.append(document.createTextNode(name));
+      ['屈伸', '侧摆'].forEach((axisName, axis) => {
+        const label = document.createElement('label');
+        const slider = document.createElement('input');
+        const readout = document.createElement('output');
+        slider.type = 'range';
+        [slider.min, slider.max] = state.axis_limits[axis];
+        slider.step = '1';
+        slider.oninput = () => { readout.value = slider.value + '°'; };
+        slider.onchange = () => command('finger', { finger, axis, value: slider.valueAsNumber });
+        label.append(axisName, readout, slider);
+        card.append(label);
+        fingerSliders.push({ slider, readout, finger, axis });
+      });
+      el('fingers').append(card);
+    });
+  }
+  fingerSliders.forEach(({ slider, readout, finger, axis }) => {
+    slider.disabled = false;
+    if (slider === document.activeElement) return;
+    const degrees = Math.round(state.finger_axes[finger][axis]);
+    slider.value = degrees;
+    readout.value = degrees + '°';
+  });
+}
+document.querySelectorAll('[data-pose]').forEach(button => {
+  button.onclick = async () => {
+    button.blur();
+    await command('pose/' + button.dataset.pose);
+  };
+});
+async function update(){
+ try{
+ const res=await fetch('/state',{cache:'no-store'});if(!res.ok)throw Error();const s=await res.json();
+ const c=el('view');if(s.frame){const img=new Image();img.src='data:image/jpeg;base64,'+s.frame;await img.decode();c.width=img.width;c.height=img.height;ctx.drawImage(img,0,0);}
+ else ctx.clearRect(0,0,c.width,c.height);
+ const p=s.points.map(([x,y])=>[x*c.width,y*c.height]);
+ if(p.length===21){ctx.lineWidth=3;ctx.lineCap='round';chains.forEach((chain,j)=>{ctx.strokeStyle=colors[j];ctx.beginPath();chain.forEach((i,k)=>k?ctx.lineTo(...p[i]):ctx.moveTo(...p[i]));ctx.stroke()});p.forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();ctx.strokeStyle='#183a32';ctx.lineWidth=1;ctx.stroke()})}
+ el('halt').hidden=s.mode!=='实机跟随';el('halt').disabled=false;el('stop').disabled=false;el('phase').textContent=s.phase;el('status').textContent=(s.hand==='Right'?'右手':'左手')+(p.length?' · 已识别':' · 等待识别');
+ document.querySelectorAll('.bar i').forEach((bar,i)=>{const val=s.flexion?.[i];bar.style.width=(val==null?0:val*100)+'%';bar.parentElement.previousElementSibling.lastChild.textContent=val==null?'—':Math.round(val*100)+'%'});
+ [...el('angles').rows].forEach((r,i)=>{r.cells[1].textContent=s.target?.[i]?.toFixed(1)??'—';r.cells[2].textContent=s.measured?.[i]?.toFixed(1)??'—'});
+ el('cal').hidden=s.mode!=='标定预览';el('servo').hidden=!s.hardware;
+ updateFingerControls(s);
+ document.querySelectorAll('[data-cmd]').forEach(b=>{b.disabled=b.dataset.cmd.startsWith('vision')?!p.length:!s.measured;b.style.fontWeight=s.samples[b.dataset.cmd]?'bold':'normal'});
+ }catch{el('status').textContent='连接已断开';el('phase').textContent='离线';ctx.clearRect(0,0,el('view').width,el('view').height);document.querySelectorAll('button, input').forEach(b=>b.disabled=true)}
+ setTimeout(update,90)
+}
+async function command(key, payload) {
+  try {
+    const response = await fetch('/' + key, {
+      method: 'POST',
+      body: payload === undefined ? null : JSON.stringify(payload)
+    });
+    el('message').textContent = await response.text();
+  } catch {
+    el('message').textContent = '服务已关闭';
+  }
+}
+document.querySelectorAll('[data-cmd]').forEach(b=>b.onclick=()=>command(b.dataset.cmd));el('stop').onclick=el('halt').onclick=()=>command('stop');update();
+</script></html>

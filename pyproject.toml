@@ -177,6 +177,7 @@ openarms = ["lerobot[damiao]"]
 gamepad = ["lerobot[pygame-dep]", "hidapi>=0.14.0,<0.15.0"]
 hopejr = ["lerobot[feetech]", "lerobot[pygame-dep]"]
 amazinghand = ["lerobot[dataset]", "lerobot[feetech]", "lerobot[pygame-dep]", "lerobot[viz]", "rustypot>=1.6.0,<2.0.0"]
+amazinghand-camera = ["lerobot[amazinghand]", "mediapipe>=0.10.32,<2.0.0"]
 lekiwi = ["lerobot[feetech]", "lerobot[pyzmq-dep]"]
 unitree_g1 = [
     # "unitree-sdk2==1.0.1",
@@ -356,6 +357,7 @@ lerobot-dataset-viz="lerobot.scripts.lerobot_dataset_viz:main"
 lerobot-info="lerobot.scripts.lerobot_info:main"
 lerobot-find-joint-limits="lerobot.scripts.lerobot_find_joint_limits:main"
 lerobot-calibrate-amazing-hand="lerobot.scripts.lerobot_calibrate_amazing_hand:main"
+lerobot-preview-amazing-hand-camera="lerobot.scripts.lerobot_preview_amazing_hand_camera:main"
 lerobot-imgtransform-viz="lerobot.scripts.lerobot_imgtransform_viz:main"
 lerobot-edit-dataset="lerobot.scripts.lerobot_edit_dataset:main"
 lerobot-setup-can="lerobot.scripts.lerobot_setup_can:main"
@@ -378,7 +380,8 @@ torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
 torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
 
 [tool.setuptools.package-data]
-lerobot = ["envs/*.json", "annotations/steerable_pipeline/prompts/*.txt"]
+"lerobot.teleoperators.so_amazing_hand_camera" = ["web_assets/**/*"]
+lerobot = ["teleoperators/so_amazing_hand_camera/dashboard.html", "teleoperators/so_amazing_hand_camera/juxi_bridge.js", "envs/*.json", "annotations/steerable_pipeline/prompts/*.txt"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
